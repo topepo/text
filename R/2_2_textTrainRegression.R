@@ -118,6 +118,8 @@ fit_model_rmse <- function(object, model = "regression", eval_measure = "rmse", 
         }
       }
     }
+    # TODO this should probably use a workflow, then `workflows::.fit_pre()`,
+    # then extract the recipe to get the number of predictors
     xy_recipe_prep <- recipes::prep(xy_recipe)
   }
 
@@ -154,10 +156,13 @@ fit_model_rmse <- function(object, model = "regression", eval_measure = "rmse", 
       } %>%
       parsnip::set_engine("glmnet")
 
+    # make hardhat blueprint
+    bp <- make_blueprint(xy_recipe)
+
     # Create Workflow (to know variable roles from recipes) help(workflow)
     wf <- workflows::workflow() %>%
       workflows::add_model(mod_spec) %>%
-      workflows::add_recipe(xy_recipe)
+      workflows::add_recipe(xy_recipe, blueprint = bp)
 
     # Fit model
     mod <- parsnip::fit(wf, data = data_train)
@@ -174,10 +179,13 @@ fit_model_rmse <- function(object, model = "regression", eval_measure = "rmse", 
       }
     }
 
+    # make hardhat blueprint
+    bp <- make_blueprint(xy_recipe)
+
     # Create Workflow (to know variable roles from recipes) help(workflow)
     wf <- workflows::workflow() %>%
       workflows::add_model(mod_spec) %>%
-      workflows::add_recipe(xy_recipe)
+      workflows::add_recipe(xy_recipe, blueprint = bp)
 
     # Fit model
     mod <- parsnip::fit(wf, data = data_train)
@@ -909,10 +917,13 @@ textTrainRegression <- function(x,
           } %>%
           parsnip::set_engine("glmnet")
 
+        # make hardhat blueprint
+        bp <- make_blueprint(final_recipe)
+
         # Create Workflow (to know variable roles from recipes) help(workflow)
         wf_final <- workflows::workflow() %>%
           workflows::add_model(final_predictive_model_spec) %>%
-          workflows::add_recipe(final_recipe)
+          workflows::add_recipe(final_recipe, blueprint = bp)
 
         # Fit model
         final_predictive_model <- parsnip::fit(wf_final, data = xy_all)
@@ -929,11 +940,13 @@ textTrainRegression <- function(x,
           }
         }
 
+        # make hardhat blueprint
+        bp <- make_blueprint(final_recipe)
 
         # Create Workflow (to know variable roles from recipes) help(workflow)
         wf_final <- workflows::workflow() %>%
           workflows::add_model(final_predictive_model_spec) %>%
-          workflows::add_recipe(final_recipe)
+          workflows::add_recipe(final_recipe, blueprint = bp)
 
         # Fit model
         final_predictive_model <- parsnip::fit(wf_final, data = xy_all)
@@ -1122,3 +1135,19 @@ textTrainRegression <- function(x,
 
   final_results
 }
+
+# As of hardhat, recipes, and workflows v 1.0.0, bake() will fail for non-standard
+# roles unless those roles are declared in a blueprint.
+
+make_blueprint <- function(recipe) {
+  info <- summary(recipe)
+  info <- info[!(info$role %in% c("predictor", "outcome")), ]
+  roles <- unique(info$role)
+  if (length(roles) > 1) {
+    bp <- hardhat::default_recipe_blueprint(bake_dependent_roles = roles)
+  } else {
+    bp <- hardhat::default_recipe_blueprint()
+  }
+  bp
+}
+
