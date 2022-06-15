@@ -120,6 +120,9 @@ fit_model_rmse <- function(object, model = "regression", eval_measure = "rmse", 
     }
     # TODO this should probably use a workflow, then `workflows::.fit_pre()`,
     # then extract the recipe to get the number of predictors
+    # or
+    # don't use the non-standard roles in the base recipe, get the number of
+    # predictors and then update the roles?
     xy_recipe_prep <- recipes::prep(xy_recipe)
   }
 
